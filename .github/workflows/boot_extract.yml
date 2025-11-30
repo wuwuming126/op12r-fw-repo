@@ -29,7 +29,7 @@ jobs:
               run: wget -O otadump https://github.com/crazystylus/otadump/releases/download/0.1.2/otadump-0.1.2-x86_64-unknown-linux-gnu.tar.gz && tar xvf otadump && rm LICENSE README.md
             
             - name: Downloading OTA
-              run: aria2c -o ota.zip --user-agent='Dalvik/2.1.0 (Linux; U; Android 15; CPH2585 Build/AQ3A.241114.001)' "${{ github.event.inputs.fileurl }}"
+              run: aria2c -o ota.zip --user-agent='Dalvik/2.1.0 (Linux; U; Android 15; CPH2585 Build/AQ3A.241114.001)' -x 16 "${{ github.event.inputs.fileurl }}"
             
             - name: Extracting zip 
               run: unzip ota.zip 
@@ -39,21 +39,14 @@ jobs:
                 echo "REL_NAME=$(grep "version_name=" META-INF/com/android/metadata | sed 's/^[^=]*=//')" >> $GITHUB_ENV
                 echo "############## $(echo ${{env.REL_NAME}}) ##############"
             
-            - name: Dumping boot and init_boot    
+            - name: Dumping firmware (excluding boot/init_boot)
               run: | 
-                ./otadump payload.bin --partitions boot,init_boot
-                cp extracted*/boot.img extracted*/init_boot.img $GITHUB_WORKSPACE
-                sha1sum boot.img > boot.img.sha1sum
-                sha1sum init_boot.img > init_boot.img.sha1sum
-                rm -rf extracted*/
                 ./otadump payload.bin --partitions abl,aop_config,aop,bluetooth,cpucp,cpucp_dtb,devcfg,dsp,engineering_cdt,featenabler,hyp,imagefv,keymaster,modem,oplus_sec,oplusstanvbk,qupfw,shrm,splash,tz,uefi,uefisecapp,xbl_config,xbl_ramdump,xbl
                 mkdir firmware
                 cp -r extracted*/* firmware
-                wget -O firmware/install_images.bat https://gist.githubusercontent.com/inferno0230/128507cea45202db46176b616492bf77/raw/17c85016e88891f39ee7f96b8c0a086701d972f1/install_images.bat
-                wget -O firmware/install_images.sh https://gist.githubusercontent.com/inferno0230/c688d146827e7ae4fa854b8c6816b106/raw/4303f3d1408277492b0fc39f15cfd6edc42666b0/install.sh
                 zip -r fastboot_firmware.zip firmware
                 rm -rf extracted*/
             
             - name: Creating release
               run: |
-                gh release create $REL_NAME --title $(echo $REL_NAME) --notes "" boot.img init_boot.img boot.img.sha1sum init_boot.img.sha1sum fastboot_firmware.zip
+                gh release create $REL_NAME --title $(echo $REL_NAME) --notes "" fastboot_firmware.zip
