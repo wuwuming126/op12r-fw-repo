@@ -29,111 +29,50 @@ jobs:
                 tar xvf otadump.tar.gz
                 chmod +x otadump
 
-            - name: Downloading OTA
-              run: aria2c -o ota.zip --user-agent='Dalvik/2.1.0 (Linux; U; Android 15; CPH2585 Build/AQ3A.241114.001)' -x 16 "${{ github.event.inputs.fileurl }}"
-            
-            - name: Extracting payload.bin
-              run: unzip ota.zip payload.bin META-INF/*
+            - name: Downloading and Extracting payload.bin
+              run: |
+                # 下载 OTA 并解压出元数据和 payload.bin
+                aria2c -o ota.zip --user-agent='Dalvik/2.1.0 (Linux; U; Android 15; CPH2585 Build/AQ3A.241114.001)' -x 16 "${{ github.event.inputs.fileurl }}"
+                unzip ota.zip payload.bin META-INF/*
+                rm ota.zip # 释放空间
                 
-            - name: Setting up Release name
-              run: |  
-                # 从元数据提取版本号
-                REL_NAME=$(grep "version_name=" META-INF/com/android/metadata | sed 's/^[^=]*=//')
-                echo "REL_NAME=$REL_NAME" >> $GITHUB_ENV
-            
             - name: Dumping firmware and organizing structure
               run: | 
-                # 定义要提取的分区列表
+                # 提取版本号用于命名
+                REL_NAME=$(grep "version_name=" META-INF/com/android/metadata | sed 's/^[^=]*=//' | tr -d '\r')
+                echo "REL_NAME=$REL_NAME" >> $GITHUB_ENV
+
+                # 定义分区列表
                 PARTITIONS="abl,aop_config,aop,bluetooth,cpucp,cpucp_dtb,devcfg,dsp,engineering_cdt,featenabler,hyp,imagefv,keymaster,modem,oplus_sec,oplusstanvbk,qupfw,shrm,splash,tz,uefi,uefisecapp,xbl_config,xbl_ramdump,xbl"
                 
-                # 提取分区镜像
+                # 提取镜像并删除 payload 释放空间
                 ./otadump payload.bin --partitions $PARTITIONS
+                rm payload.bin
                 
-                # 创建输出目录并同步图片所示的结构
-                mkdir -p output_firmware/platform-tools
+                # 创建输出目录
+                mkdir -p output_firmware
                 
-                # 移动镜像到根目录
-                mv extracted*/*.img output_firmware/
+                # 移动所有生成的镜像到目录根目录
+                find extracted* -name "*.img" -exec mv {} output_firmware/ \;
                 
-                # 下载指定的刷机脚本并改名
-                wget -O output_firmware/flash_all.bat https://raw.githubusercontent.com/wuwuming126/fw-repo/4b0cf3ac789b1243d8d5b93eaf927a111821bb45/fw_flash_all.bat
+                # 下载指定的刷机脚本
+                wget -O output_firmware/flash_all.bat https://raw.githubusercontent.com/wuwuming126/fw-repo/072cd446bfeb35b06e19a990ba5027659bc856ae/fw_flash_all.bat
                 
-                # 补全 Windows 运行环境
-                wget https://dl.google.com/android/repository/platform-tools-latest-windows.zip
-                unzip platform-tools-latest-windows.zip -d temp_pt
-                mv temp_pt/platform-tools/fastboot.exe output_firmware/platform-tools/
-                mv temp_pt/platform-tools/AdbWinApi.dll output_firmware/platform-tools/
-                mv temp_pt/platform-tools/AdbWinUsbApi.dll output_firmware/platform-tools/
+                # 下载你指定的 Fastboot 工具包
+                wget -O custom_pt.zip https://raw.githubusercontent.com/wuwuming126/fw-repo/221524352d77bcce3a1a44aa6c152db6437ca933/platform-tools-latest-windows.zip
+                
+                # 解压工具包直接到 output_firmware 目录
+                # 注意：如果 zip 内部已经包含 platform-tools 文件夹，解压后会自动生成该子目录
+                unzip custom_pt.zip -d output_firmware/
+                rm custom_pt.zip
 
             - name: 7z Solid Compression
               run: |
-                # 使用版本号 + _firmware 后缀命名并开启固实压缩
+                # 固实压缩打包
                 cd output_firmware
                 7z a -t7z -m0=lzma2 -mx=9 -ms=on "../${{ env.REL_NAME }}_firmware.7z" ./*
 
             - name: Creating release
               run: |
-                # 发布 Release 并上传文件
-                gh release create "${{ env.REL_NAME }}" --title "${{ env.REL_NAME }}" --notes "Auto-generated Fastboot Firmware" "${{ env.REL_NAME }}_firmware.7z"                
-            - name: Setting up Release name
-              run: |  
-                REL_NAME=$(grep "version_name=" META-INF/com/android/metadata | sed 's/^[^=]*=//')
-                echo "REL_NAME=$REL_NAME" >> $GITHUB_ENV
-            
-            - name: Dumping firmware and organizing structure
-              run: | 
-                # 定义要提取的分区列表
-                PARTITIONS="abl,aop_config,aop,bluetooth,cpucp,cpucp_dtb,devcfg,dsp,engineering_cdt,featenabler,hyp,imagefv,keymaster,modem,oplus_sec,oplusstanvbk,qupfw,shrm,splash,tz,uefi,uefisecapp,xbl_config,xbl_ramdump,xbl"
-                
-                # 提取分区
-                ./otadump payload.bin --partitions $PARTITIONS
-                
-                # 建立图片所示的目录结构
-                mkdir -p output_firmware/platform-tools
-                
-                # 移动镜像文件到根目录
-                mv extracted*/*.img output_firmware/
-                
-                # 下载 Windows 版 platform-tools (以便在 Windows 下直接运行)
-                wget https://dl.google.com/android/repository/platform-tools-latest-windows.zip
-                unzip platform-tools-latest-windows.zip -d temp_pt
-                mv temp_pt/platform-tools/fastboot.exe output_firmware/platform-tools/
-                mv temp_pt/platform-tools/AdbWinApi.dll output_firmware/platform-tools/
-                mv temp_pt/platform-tools/AdbWinUsbApi.dll output_firmware/platform-tools/
-
-            - name: Creating Flash Script
-              run: |
-                # 动态生成 flash_all.bat
-                cat << 'EOF' > output_firmware/flash_all.bat
-                @echo off
-                cd /d "%~dp0"
-                title Fastboot_Flasher
-                set FB="platform-tools\fastboot.exe"
-                echo ===================================
-                echo STEP 1: Checking Device...
-                %FB% devices
-                echo ===================================
-                echo STEP 2: Rebooting to Fastbootd...
-                %FB% reboot fastboot
-                timeout /t 10
-                echo STEP 3: Flashing Images...
-                EOF
-
-                # 自动将所有 img 文件写入闪存脚本
-                for img in output_firmware/*.img; do
-                    filename=$(basename "$img")
-                    partition="${filename%.img}"
-                    echo "%FB% flash --slot=all $partition $filename" >> output_firmware/flash_all.bat
-                done
-
-                echo -e "echo DONE!\n%FB% reboot\npause" >> output_firmware/flash_all.bat
-
-            - name: 7z Solid Compression
-              run: |
-                # 使用 7z 固实压缩 (-ms=on)
-                cd output_firmware
-                7z a -t7z -m0=lzma2 -mx=9 -ms=on ../fastboot_firmware.7z ./*
-
-            - name: Creating release
-              run: |
-                gh release create "$REL_NAME" --title "$REL_NAME" --notes "Fastboot Firmware generated by Actions" fastboot_firmware.7z
+                # 创建发布版本并上传文件
+                gh release create "${{ env.REL_NAME }}" --title "${{ env.REL_NAME }}" --notes "Fastboot Firmware with custom tools and script" "${{ env.REL_NAME }}_firmware.7z"
