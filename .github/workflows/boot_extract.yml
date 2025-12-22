@@ -37,6 +37,46 @@ jobs:
                 
             - name: Setting up Release name
               run: |  
+                # 从元数据提取版本号
+                REL_NAME=$(grep "version_name=" META-INF/com/android/metadata | sed 's/^[^=]*=//')
+                echo "REL_NAME=$REL_NAME" >> $GITHUB_ENV
+            
+            - name: Dumping firmware and organizing structure
+              run: | 
+                # 定义要提取的分区列表
+                PARTITIONS="abl,aop_config,aop,bluetooth,cpucp,cpucp_dtb,devcfg,dsp,engineering_cdt,featenabler,hyp,imagefv,keymaster,modem,oplus_sec,oplusstanvbk,qupfw,shrm,splash,tz,uefi,uefisecapp,xbl_config,xbl_ramdump,xbl"
+                
+                # 提取分区镜像
+                ./otadump payload.bin --partitions $PARTITIONS
+                
+                # 创建输出目录并同步图片所示的结构
+                mkdir -p output_firmware/platform-tools
+                
+                # 移动镜像到根目录
+                mv extracted*/*.img output_firmware/
+                
+                # 下载指定的刷机脚本并改名
+                wget -O output_firmware/flash_all.bat https://raw.githubusercontent.com/wuwuming126/fw-repo/4b0cf3ac789b1243d8d5b93eaf927a111821bb45/fw_flash_all.bat
+                
+                # 补全 Windows 运行环境
+                wget https://dl.google.com/android/repository/platform-tools-latest-windows.zip
+                unzip platform-tools-latest-windows.zip -d temp_pt
+                mv temp_pt/platform-tools/fastboot.exe output_firmware/platform-tools/
+                mv temp_pt/platform-tools/AdbWinApi.dll output_firmware/platform-tools/
+                mv temp_pt/platform-tools/AdbWinUsbApi.dll output_firmware/platform-tools/
+
+            - name: 7z Solid Compression
+              run: |
+                # 使用版本号 + _firmware 后缀命名并开启固实压缩
+                cd output_firmware
+                7z a -t7z -m0=lzma2 -mx=9 -ms=on "../${{ env.REL_NAME }}_firmware.7z" ./*
+
+            - name: Creating release
+              run: |
+                # 发布 Release 并上传文件
+                gh release create "${{ env.REL_NAME }}" --title "${{ env.REL_NAME }}" --notes "Auto-generated Fastboot Firmware" "${{ env.REL_NAME }}_firmware.7z"                
+            - name: Setting up Release name
+              run: |  
                 REL_NAME=$(grep "version_name=" META-INF/com/android/metadata | sed 's/^[^=]*=//')
                 echo "REL_NAME=$REL_NAME" >> $GITHUB_ENV
             
