@@ -17,62 +17,37 @@ jobs:
         steps:
             - name: Checkout Repository
               uses: actions/checkout@main
-            
             - name: Set up Environment
               run: |
                 sudo apt-get update
                 sudo apt-get install -y aria2 p7zip-full
-            
             - name: Downloading otadump    
               run: |
                 wget -O otadump.tar.gz https://github.com/crazystylus/otadump/releases/download/0.1.2/otadump-0.1.2-x86_64-unknown-linux-gnu.tar.gz
                 tar xvf otadump.tar.gz
                 chmod +x otadump
-
             - name: Downloading and Extracting payload.bin
               run: |
-                # 下载 OTA 并解压出元数据和 payload.bin
                 aria2c -o ota.zip --user-agent='Dalvik/2.1.0 (Linux; U; Android 15; CPH2585 Build/AQ3A.241114.001)' -x 16 "${{ github.event.inputs.fileurl }}"
                 unzip ota.zip payload.bin META-INF/*
-                rm ota.zip # 释放空间
-                
+                rm ota.zip
             - name: Dumping firmware and organizing structure
               run: | 
-                # 提取版本号用于命名
                 REL_NAME=$(grep "version_name=" META-INF/com/android/metadata | sed 's/^[^=]*=//' | tr -d '\r')
                 echo "REL_NAME=$REL_NAME" >> $GITHUB_ENV
-
-                # 定义分区列表
                 PARTITIONS="abl,aop_config,aop,bluetooth,cpucp,cpucp_dtb,devcfg,dsp,engineering_cdt,featenabler,hyp,imagefv,keymaster,modem,oplus_sec,oplusstanvbk,qupfw,shrm,splash,tz,uefi,uefisecapp,xbl_config,xbl_ramdump,xbl"
-                
-                # 提取镜像并删除 payload 释放空间
                 ./otadump payload.bin --partitions $PARTITIONS
                 rm payload.bin
-                
-                # 创建输出目录
                 mkdir -p output_firmware
-                
-                # 移动所有生成的镜像到目录根目录
                 find extracted* -name "*.img" -exec mv {} output_firmware/ \;
-                
-                # 下载指定的刷机脚本
-                wget -O output_firmware/flash_all.bat https://raw.githubusercontent.com/wuwuming126/fw-repo/072cd446bfeb35b06e19a990ba5027659bc856ae/fw_flash_all.bat
-                
-                # 下载你指定的 Fastboot 工具包
+                wget -O output_firmware/flash_all.bat https://github.com/wuwuming126/fw-repo/blob/64436f3356e94f56919acc4364dc1973c4064390/fw_flash_all.bat
                 wget -O custom_pt.zip https://raw.githubusercontent.com/wuwuming126/fw-repo/221524352d77bcce3a1a44aa6c152db6437ca933/platform-tools-latest-windows.zip
-                
-                # 解压工具包直接到 output_firmware 目录
-                # 注意：如果 zip 内部已经包含 platform-tools 文件夹，解压后会自动生成该子目录
                 unzip custom_pt.zip -d output_firmware/
                 rm custom_pt.zip
-
             - name: 7z Solid Compression
               run: |
-                # 固实压缩打包
                 cd output_firmware
                 7z a -t7z -m0=lzma2 -mx=9 -ms=on "../${{ env.REL_NAME }}_firmware.7z" ./*
-
             - name: Creating release
               run: |
-                # 创建发布版本并上传文件
                 gh release create "${{ env.REL_NAME }}" --title "${{ env.REL_NAME }}" --notes "Fastboot Firmware with custom tools and script" "${{ env.REL_NAME }}_firmware.7z"
