@@ -16,6 +16,17 @@
 * **操作简单**：无需本地下载动辄几个 GB 的固件包，在 Actions 处输入链接即可云端处理。
 * **集成度高**：自动打包必要的镜像、最新版平台工具（Platform Tools）以及刷机脚本。
 
+### Models
+
+| Model Number | Device Name          | Region |
+|-------------|----------------------|--------|
+| PKG110     | OnePlus ACE5          | CN |
+| CPH2645EEA  | OnePlus 13R          | EU     |
+| CPH2645     | OnePlus 13R          | GLO |
+| CPH2691IN   | OnePlus 13R          | IND  |
+| CPH2647     | OnePlus 13R          | NA |
+
+
 ### ⚠️ 严正警告
 > [!IMPORTANT]
 > **本脚本仅供更新类原生系统的底层固件（Firmware）使用！**
@@ -43,6 +54,16 @@ Designed for Custom ROM users, this script automatically extracts key partition 
 * **Universal Compatibility**: Theoretically supports all devices using the `payload.bin` format.
 * **Easy to Use**: No need to download large OTA packages locally; processing is handled entirely in the cloud.
 * **All-in-One**: Automatically packages images, the latest Platform Tools, and flashing scripts.
+
+### Models
+
+| Model Number | Device Name          | Region |
+|-------------|----------------------|--------|
+| PKG110     | OnePlus ACE5          | CN |
+| CPH2645EEA  | OnePlus 13R          | EU     |
+| CPH2645     | OnePlus 13R          | GLO |
+| CPH2691IN   | OnePlus 13R          | IND  |
+| CPH2647     | OnePlus 13R          | NA |
 
 ### ⚠️ Strict Warning
 > [!IMPORTANT]
