@@ -23,7 +23,7 @@
 | PKG110     | OnePlus ACE5          | CN |
 | CPH2645EEA  | OnePlus 13R          | EU     |
 | CPH2645     | OnePlus 13R          | GLO |
-| CPH2691IN   | OnePlus 13R          | IND  |
+| CPH2691   | OnePlus 13R          | IND  |
 | CPH2647     | OnePlus 13R          | NA |
 
 
@@ -62,7 +62,7 @@ Designed for Custom ROM users, this script automatically extracts key partition 
 | PKG110     | OnePlus ACE5          | CN |
 | CPH2645EEA  | OnePlus 13R          | EU     |
 | CPH2645     | OnePlus 13R          | GLO |
-| CPH2691IN   | OnePlus 13R          | IND  |
+| CPH2691   | OnePlus 13R          | IND  |
 | CPH2647     | OnePlus 13R          | NA |
 
 ### ⚠️ Strict Warning
